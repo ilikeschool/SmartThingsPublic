@@ -26,7 +26,10 @@ definition(
 
 preferences {
 	section("When mail arrives...") {
-		input "accelerationSensor", "capability.accelerationSensor", title: "Where?"
+		input "mailOpenSensor", "capability.contactSensor", title: "Where?"
+	}
+	section("But not when this door is open..."){
+		input "doorOpenSensor", "capbility.contactSensor", title: "Where?"
 	}
 	section("Notify me...") {
         input("recipients", "contact", title: "Send notifications to") {
@@ -37,41 +40,50 @@ preferences {
 }
 
 def installed() {
-	subscribe(accelerationSensor, "acceleration.active", accelerationActiveHandler)
+	init()
 }
 
 def updated() {
 	unsubscribe()
-	subscribe(accelerationSensor, "acceleration.active", accelerationActiveHandler)
+	init()
 }
 
-def accelerationActiveHandler(evt) {
+def init() {
+	subscribe(mailOpenSensor, "contact.opened", eventHandler)
+}
+	
+def eventHandler(evt) {
 	log.trace "$evt.value: $evt, $settings"
-
+	
 	// Don't send a continuous stream of notifications
-	def deltaSeconds = 5
+	def deltaSeconds = 30
 	def timeAgo = new Date(now() - (1000 * deltaSeconds))
-	def recentEvents = accelerationSensor.eventsSince(timeAgo)
+	def recentEvents = mailOpenSensor.eventsSince(timeAgo)
 	log.trace "Found ${recentEvents?.size() ?: 0} events in the last $deltaSeconds seconds"
 	def alreadySentNotifications = recentEvents.count { it.value && it.value == "active" } > 1
 
-	if (alreadySentNotifications) {
-		log.debug "Notifications already sent within the last $deltaSeconds seconds (phone1: $phone1, pushNotification: $pushNotification)"
+	if(doorOpenSensor.latestValue("contact") == "opened") {
+		log.debug "Front door is open, ignoring new mail notification"
 	}
 	else {
-        if (location.contactBookEnabled) {
-            log.debug "$accelerationSensor has moved, notifying ${recipients?.size()}"
-            sendNotificationToContacts("Mail has arrived!", recipients)
-        }
-        else {
-        if (phone1 != null && phone1 != "") {
-            log.debug "$accelerationSensor has moved, texting $phone1"
-            sendSms(phone1, "Mail has arrived!")
-        }
-        if (pushNotification) {
-            log.debug "$accelerationSensor has moved, sending push"
-            sendPush("Mail has arrived!")
-        }
-    }
+		if (alreadySentNotifications) {
+			log.debug "Notifications already sent within the last $deltaSeconds seconds (phone1: $phone1, pushNotification: $pushNotification)"
+		}
+		else {
+        		if (location.contactBookEnabled) {
+            			log.debug "$accelerationSensor has moved, notifying ${recipients?.size()}"
+            			sendNotificationToContacts("Mail has arrived!", recipients)
+        		}
+        		else {
+        			if (phone1 != null && phone1 != "") {
+            				log.debug "$accelerationSensor has moved, texting $phone1"
+            				sendSms(phone1, "You got mail!")
+        			}
+        			if (pushNotification) {
+            				log.debug "$accelerationSensor has moved, sending push"
+            				sendPush("You got mail!")
+        			}
+    			}
+		}
 	}
 }
