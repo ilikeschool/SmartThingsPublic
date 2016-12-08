@@ -29,7 +29,7 @@ preferences {
 		input "mailOpenSensor", "capability.contactSensor", title: "Where?"
 	}
 	section("But not when this door is open..."){
-		input "doorOpenSensor", "capbility.contactSensor", title: "Where?"
+		input "doorOpenSensor", "capability.contactSensor", title: "Where?"
 	}
 	section("Notify me...") {
         input("recipients", "contact", title: "Send notifications to") {
@@ -49,7 +49,7 @@ def updated() {
 }
 
 def init() {
-	subscribe(mailOpenSensor, "contact.opened", eventHandler)
+	subscribe(mailOpenSensor, "contact.open", eventHandler)
 }
 	
 def eventHandler(evt) {
@@ -62,7 +62,7 @@ def eventHandler(evt) {
 	log.trace "Found ${recentEvents?.size() ?: 0} events in the last $deltaSeconds seconds"
 	def alreadySentNotifications = recentEvents.count { it.value && it.value == "active" } > 1
 
-	if(doorOpenSensor.latestValue("contact") == "opened") {
+	if(doorOpenSensor.latestValue("contact") == "open") {
 		log.debug "Front door is open, ignoring new mail notification"
 	}
 	else {
@@ -71,16 +71,16 @@ def eventHandler(evt) {
 		}
 		else {
         		if (location.contactBookEnabled) {
-            			log.debug "$accelerationSensor has moved, notifying ${recipients?.size()}"
+            			log.debug "$mailOpenSensor is open, notifying ${recipients?.size()}"
             			sendNotificationToContacts("Mail has arrived!", recipients)
         		}
         		else {
         			if (phone1 != null && phone1 != "") {
-            				log.debug "$accelerationSensor has moved, texting $phone1"
+            				log.debug "$mailOpenSensor is open, texting $phone1"
             				sendSms(phone1, "You got mail!")
         			}
         			if (pushNotification) {
-            				log.debug "$accelerationSensor has moved, sending push"
+            				log.debug "$mailOpenSensor is open, sending push"
             				sendPush("You got mail!")
         			}
     			}
